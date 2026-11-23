@@ -1,0 +1,2167 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eksplorasi 3D Interaktif Fire-Tube Boiler</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts: Inter & JetBrains Mono -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Three.js & OrbitControls (r128 reliable CDN) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                            950: '#070b14',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom sleek scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+        }
+
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #f97316;
+            cursor: pointer;
+            margin-top: -4px;
+            box-shadow: 0 0 8px rgba(249, 115, 22, 0.8);
+            border: 2px solid #fff;
+        }
+        input[type=range].sky-slider::-webkit-slider-thumb {
+            background: #38bdf8;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+        }
+        input[type=range].emerald-slider::-webkit-slider-thumb {
+            background: #10b981;
+            box-shadow: 0 0 8px rgba(16, 185, 129, 0.8);
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #1e293b;
+            border: 1px solid #334155;
+            border-radius: 9999px;
+        }
+
+        /* 3D Floating Hotspot Labels */
+        .pin-3d {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            transition: opacity 0.2s ease, transform 0.15s ease;
+            pointer-events: auto;
+        }
+        @keyframes pulse-ring-3d {
+            0% { transform: scale(0.85); opacity: 0.9; }
+            75% { transform: scale(2.1); opacity: 0; }
+            100% { transform: scale(2.1); opacity: 0; }
+        }
+        .pin-ring {
+            animation: pulse-ring-3d 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+        canvas {
+            display: block;
+            outline: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased w-screen h-screen overflow-hidden relative selection:bg-orange-500 selection:text-white">
+
+    <!-- FULL-BLEED 100% 3D CANVAS VIEWPORT -->
+    <div id="viewport-container" class="fixed inset-0 w-full h-full bg-gradient-to-b from-slate-900 via-slate-950 to-black cursor-grab active:cursor-grabbing z-0">
+        <div id="three-mount" class="w-full h-full"></div>
+        <!-- 3D Projected HTML Pins Overlay -->
+        <div id="pins-overlay" class="absolute inset-0 pointer-events-none overflow-hidden z-10"></div>
+    </div>
+
+    <!-- COMPACT SEMI-TRANSPARENT TOP HEADER BAR -->
+    <header id="top-header" class="fixed top-2.5 left-2.5 right-2.5 z-30 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-950/75 backdrop-blur-md border border-slate-800/80 rounded-2xl px-3.5 h-12 flex items-center justify-between gap-2 shadow-2xl pointer-events-auto">
+            <!-- Brand Title -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-xl bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center shadow-lg shadow-orange-500/25 shrink-0">
+                    <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 10l-2 1m0 0l-2-1m2 1v2.5M20 7l-2 1m2-1l-2-1m2 1v2.5M14 4l-2-1-2 1M4 7l2-1M4 7l2 1M4 7v2.5M12 21l-2-1m2 1l2-1m-2 1v-2.5M6 18l-2-1v-2.5M18 18l2-1v-2.5" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center gap-2">
+                        <h1 class="text-xs sm:text-sm font-bold tracking-tight text-white leading-none">Fire-Tube Boiler 3D</h1>
+                        <span class="hidden md:inline-block text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-400 border border-sky-500/30">Steam Dynamics</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shell Display Mode Switcher (Cutaway / X-Ray / Solid) -->
+            <div class="flex items-center bg-slate-900/90 p-0.5 rounded-xl border border-slate-800">
+                <button data-shell-mode="cutaway" class="shell-mode-btn px-2 sm:px-2.5 py-1 rounded-lg text-[11px] font-semibold transition bg-orange-600 text-white shadow">
+                    Potongan
+                </button>
+                <button data-shell-mode="xray" class="shell-mode-btn px-2 sm:px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition">
+                    X-Ray
+                </button>
+                <button data-shell-mode="solid" class="shell-mode-btn px-2 sm:px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition">
+                    Utuh
+                </button>
+            </div>
+
+            <!-- Right Header Action Buttons -->
+            <div class="flex items-center gap-1.5">
+                <button id="toggle-pins-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-medium text-slate-200 transition" title="Tampilkan / Sembunyikan Pin 3D">
+                    <span id="pin-dot-indicator" class="w-2 h-2 rounded-full bg-orange-500"></span>
+                    <span class="hidden sm:inline" id="toggle-pins-text">Pin: ON</span>
+                </button>
+
+                <button id="focus-mode-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/80 text-[11px] font-medium text-sky-300 transition" title="Mode Fokus Layar Penuh (Sembunyikan UI)">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                    </svg>
+                    <span class="hidden sm:inline">Mode Fokus</span>
+                </button>
+
+                <button id="toggle-sidebar-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-orange-600/20 hover:bg-orange-600/30 border border-orange-500/40 text-[11px] font-semibold text-orange-300 transition" title="Buka / Lipat Panel Penjelasan Komponen">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span id="toggle-sidebar-text">Detail Part</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- SUB-HEADER: LIVE STEAM TELEMETRY HUD & 360 CAMERA ANGLES -->
+        <div class="mt-2 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
+            <!-- Real-Time Steam & Pressure Telemetry Pill -->
+            <div class="flex flex-wrap items-center gap-2 sm:gap-3 bg-slate-950/75 backdrop-blur-md border border-slate-800/80 px-3 py-1.5 rounded-xl shadow-lg pointer-events-auto">
+                <div class="flex items-center gap-1.5">
+                    <span id="status-dot" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                    <span id="status-text" class="text-[11px] font-mono font-bold text-emerald-400">NORMAL</span>
+                </div>
+                <span class="text-slate-700">|</span>
+                <div class="flex items-center gap-1 text-[11px] font-mono">
+                    <span class="text-slate-400">TEKANAN:</span>
+                    <span id="telemetry-pressure" class="text-sky-400 font-bold">10.5 bar</span>
+                </div>
+                <span class="text-slate-700">|</span>
+                <div class="flex items-center gap-1 text-[11px] font-mono">
+                    <span class="text-slate-400">KEC. UAP:</span>
+                    <span id="telemetry-velocity" class="text-emerald-400 font-bold">26.4 m/s</span>
+                </div>
+                <span class="text-slate-700 hidden sm:inline">|</span>
+                <div class="hidden sm:flex items-center gap-1 text-[11px] font-mono">
+                    <span class="text-slate-400">PRODUKSI:</span>
+                    <span id="telemetry-flow" class="text-indigo-300 font-bold">3.450 kg/h</span>
+                </div>
+                <span class="text-slate-700 hidden md:inline">|</span>
+                <div class="hidden md:flex items-center gap-1 text-[11px] font-mono">
+                    <span class="text-slate-400">SUHU SATURASI:</span>
+                    <span id="telemetry-temp" class="text-orange-400 font-bold">186 °C</span>
+                </div>
+            </div>
+
+            <!-- 360 Camera Angle Presets -->
+            <div class="flex flex-wrap items-center gap-1 bg-slate-950/75 backdrop-blur-md border border-slate-800/80 p-1 rounded-xl shadow-lg pointer-events-auto">
+                <button data-view="iso" class="cam-preset-btn px-2 py-0.5 rounded-lg text-[11px] font-semibold bg-slate-800 text-sky-400 hover:bg-slate-700 transition">3D Iso</button>
+                <button data-view="right" class="cam-preset-btn px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-300 hover:bg-slate-800 transition">Samping Kanan</button>
+                <button data-view="left" class="cam-preset-btn px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-300 hover:bg-slate-800 transition">Samping Kiri</button>
+                <button data-view="front" class="cam-preset-btn px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-300 hover:bg-slate-800 transition">Depan</button>
+                <button data-view="back" class="cam-preset-btn px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-300 hover:bg-slate-800 transition">Belakang</button>
+                <button data-view="top" class="cam-preset-btn px-2 py-0.5 rounded-lg text-[11px] font-medium text-slate-300 hover:bg-slate-800 transition">Atas</button>
+            </div>
+        </div>
+
+        <!-- Safety Valve Relief Alert Banner (Hidden unless P > 15.0 Bar) -->
+        <div id="safety-alert-banner" class="hidden mt-2 mx-auto w-fit bg-red-950/90 border border-red-500 text-red-200 px-3.5 py-1.5 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-semibold animate-bounce pointer-events-auto">
+            <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
+            <span>PERINGATAN TEKANAN TINGGI (&gt; 15 Bar): Safety Valve Terbuka Membuang Uap!</span>
+        </div>
+    </header>
+
+    <!-- RESTORE UI FLOATING PILL (Visible only in Focus / Full-Screen Study Mode) -->
+    <button id="exit-focus-btn" class="hidden fixed top-3 right-3 z-40 inline-flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900/85 hover:bg-slate-800 backdrop-blur-md border border-slate-700 text-xs font-semibold text-white shadow-2xl transition">
+        <svg class="w-4 h-4 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+        </svg>
+        <span>Tampilkan Kontrol UI</span>
+    </button>
+
+    <!-- Hover Tooltip for 3D Meshes -->
+    <div id="hover-tooltip" class="hidden fixed z-30 pointer-events-none px-3 py-1.5 rounded-lg bg-slate-950/95 border border-orange-500/60 text-xs font-semibold text-white shadow-xl">
+        Komponen
+    </div>
+
+    <!-- COLLAPSIBLE RIGHT INSPECTOR DRAWER (Defaults to collapsed on small screens, toggleable anytime) -->
+    <aside id="inspector-sidebar" class="fixed top-16 bottom-3 right-2.5 w-[calc(100vw-20px)] sm:w-[370px] bg-slate-950/88 backdrop-blur-xl border border-slate-800/90 rounded-2xl flex flex-col justify-between z-30 transition-all duration-300 shadow-2xl translate-x-[115%] opacity-0 pointer-events-none">
+        <div class="p-4 overflow-y-auto flex-1 space-y-3.5">
+            <!-- Header Row -->
+            <div class="flex items-center justify-between gap-2">
+                <span id="part-category" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg text-[11px] font-semibold bg-orange-500/15 text-orange-400 border border-orange-500/30">
+                    Sistem Pembakaran
+                </span>
+                <div class="flex items-center gap-1.5">
+                    <span id="part-number-badge" class="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center font-mono text-xs font-bold text-white">
+                        01
+                    </span>
+                    <button id="close-sidebar-btn" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition" title="Lipat Panel">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Title & Subtitle -->
+            <div>
+                <h2 id="part-title" class="text-lg font-bold text-white tracking-tight leading-snug">
+                    Burner Assembly (Pembakar)
+                </h2>
+                <p id="part-subtitle" class="text-[11px] font-mono text-slate-400 mt-0.5">
+                    Forced-Draft Fuel & Air Atomizer
+                </p>
+            </div>
+
+            <!-- Focus Camera Button -->
+            <button id="refocus-part-btn" class="w-full py-2 px-3 rounded-xl bg-sky-500/15 hover:bg-sky-500/25 border border-sky-500/30 text-sky-300 text-xs font-semibold flex items-center justify-center gap-2 transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+                <span>Sorot Kamera 3D ke Komponen Ini</span>
+            </button>
+
+            <!-- Main Function -->
+            <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-3">
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-sky-400 mb-1 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    Fungsi & Letak Komponen
+                </h3>
+                <p id="part-function" class="text-xs text-slate-300 leading-relaxed">
+                    Deskripsi fungsi komponen.
+                </p>
+            </div>
+
+            <!-- Working Principle -->
+            <div class="bg-slate-900/80 border border-slate-800/90 rounded-xl p-3">
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-orange-400 mb-1 flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                    </svg>
+                    Prinsip Kerja & Termodinamika
+                </h3>
+                <p id="part-thermo" class="text-xs text-slate-300 leading-relaxed">
+                    Penjelasan termodinamika komponen.
+                </p>
+            </div>
+
+            <!-- Operating Parameters -->
+            <div>
+                <h3 class="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-1.5">Parameter Operasi</h3>
+                <div id="part-specs" class="grid grid-cols-2 gap-2">
+                    <!-- Spec cards injected via JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Drawer Footer Navigation -->
+        <div class="p-3 border-t border-slate-800 bg-slate-900/70 rounded-b-2xl flex items-center justify-between gap-2">
+            <button id="drawer-prev-btn" class="flex-1 py-1.5 px-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 transition">
+                &larr; Sebelumnya
+            </button>
+            <button id="drawer-next-btn" class="flex-1 py-1.5 px-2.5 rounded-lg bg-orange-600 hover:bg-orange-500 text-xs font-semibold text-white transition">
+                Berikutnya &rarr;
+            </button>
+        </div>
+    </aside>
+
+    <!-- BOTTOM FLOATING SIMULATION & PART BAR -->
+    <div id="bottom-deck" class="fixed bottom-2.5 left-2.5 right-2.5 z-20 flex flex-col gap-2 transition-all duration-300 pointer-events-none">
+        
+        <!-- Horizontal Quick Part Selector Bar -->
+        <div class="bg-slate-950/75 backdrop-blur-md border border-slate-800/80 rounded-xl p-1.5 pointer-events-auto shadow-xl">
+            <div id="parts-pill-list" class="flex items-center gap-1.5 overflow-x-auto">
+                <!-- Part pills injected via JS -->
+            </div>
+        </div>
+
+        <!-- Real-Time Pressure, Steam Velocity & Combustion Control Deck -->
+        <div class="bg-slate-950/80 backdrop-blur-md border border-slate-800/90 rounded-2xl px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-3 pointer-events-auto shadow-2xl">
+            
+            <!-- Left: Burner & Firing Rate -->
+            <div class="flex flex-wrap items-center gap-3">
+                <button id="burner-toggle-btn" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition shadow-lg shadow-orange-600/30">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                    </svg>
+                    <span id="burner-btn-label">Burner: ON</span>
+                </button>
+
+                <!-- Firing Rate Slider -->
+                <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-xl">
+                    <label for="firing-rate" class="text-[11px] font-medium text-slate-300 whitespace-nowrap">Beban Api:</label>
+                    <input type="range" id="firing-rate" min="10" max="100" value="75" class="w-20 sm:w-24">
+                    <span id="firing-rate-val" class="text-[11px] font-mono font-bold text-orange-400 w-8 text-right">75%</span>
+                </div>
+
+                <!-- Target Working Pressure Slider (2 - 18 Bar) -->
+                <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-xl">
+                    <label for="target-pressure" class="text-[11px] font-medium text-slate-300 whitespace-nowrap">Target Tekanan:</label>
+                    <input type="range" id="target-pressure" min="2" max="18" step="0.5" value="10.5" class="sky-slider w-20 sm:w-24">
+                    <span id="target-pressure-val" class="text-[11px] font-mono font-bold text-sky-400 w-12 text-right">10.5 bar</span>
+                </div>
+
+                <!-- Main Steam Stop Valve Opening Slider (0 - 100%) -->
+                <div class="flex items-center gap-2 bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-xl">
+                    <label for="valve-opening" class="text-[11px] font-medium text-slate-300 whitespace-nowrap">Katup Uap:</label>
+                    <input type="range" id="valve-opening" min="15" max="100" value="80" class="emerald-slider w-20 sm:w-24">
+                    <span id="valve-opening-val" class="text-[11px] font-mono font-bold text-emerald-400 w-8 text-right">80%</span>
+                </div>
+            </div>
+
+            <!-- Right: Auto-Rotate & Guided Tour -->
+            <div class="flex items-center gap-2 ml-auto">
+                <button id="auto-rotate-btn" class="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-[11px] font-medium text-slate-300 transition" title="Putar otomatis 360°">
+                    <svg class="w-3.5 h-3.5 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    <span id="auto-rotate-text">Putar 360°</span>
+                </button>
+
+                <div class="flex items-center gap-1">
+                    <button id="prev-part-btn" class="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition" title="Komponen Sebelumnya">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                        </svg>
+                    </button>
+                    <span id="tour-counter" class="text-[11px] font-mono font-bold px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 text-orange-400">01/10</span>
+                    <button id="next-part-btn" class="p-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 transition" title="Komponen Berikutnya">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Notification Toast -->
+    <div id="toast-box" class="fixed top-28 left-1/2 -translate-x-1/2 z-50 transform -translate-y-16 opacity-0 transition-all duration-300 pointer-events-none">
+        <div class="bg-slate-900/95 border border-slate-700 text-white px-4 py-2 rounded-xl shadow-2xl flex items-center gap-2 text-xs font-medium">
+            <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+            <span id="toast-message">Notifikasi</span>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * DATA 10 KOMPONEN UTAMA FIRE-TUBE BOILER 3D
+         */
+        const boilerParts = [
+            {
+                id: 1,
+                code: "01",
+                key: "burner",
+                name: "Burner Assembly (Pembakar)",
+                subtitle: "Forced-Draft Fuel & Air Atomizing Assembly",
+                category: "Sistem Pembakaran",
+                pinPos: [-4.4, -0.35, 0.2],
+                camPos: [-6.8, 1.3, 3.4],
+                targetPos: [-3.8, -0.3, 0],
+                func: "Terpasang di pelat depan (front door) boiler. Mengatomisasi bahan bakar (gas/solar) dan mencampurnya dengan udara paksa dari blower sebelum dinyalakan ke dalam lorong api.",
+                thermo: "Mengubah energi kimia bahan bakar menjadi kalor pembakaran eksotermik. Semakin besar beban api (firing rate), semakin tinggi laju pelepasan energi panas ke air boiler.",
+                specs: [
+                    { label: "Suhu Nyala Api", value: "1.150 – 1.450 °C" },
+                    { label: "Suplai Udara", value: "Forced-Draft Blower" },
+                    { label: "Material Nozzle", value: "Stainless Steel 310S" },
+                    { label: "Excess Air", value: "10% – 18%" }
+                ]
+            },
+            {
+                id: 2,
+                code: "02",
+                key: "furnace",
+                name: "Lorong Api (Furnace)",
+                subtitle: "Corrugated Main Combustion Chamber",
+                category: "Transfer Panas Radiasi",
+                pinPos: [-1.2, -0.55, 0.7],
+                camPos: [-1.4, 0.6, 5.2],
+                targetPos: [-0.8, -0.4, 0],
+                func: "Silinder baja berdinding tebal di bagian bawah drum air tempat lidah api utama dari burner memanjang dan melepaskan panas secara langsung ke dinding logam.",
+                thermo: "Menyerap ~45% total panas boiler melalui mekanisme radiasi termal langsung dari nyala api menuju air di sekeliling dinding luar furnace.",
+                specs: [
+                    { label: "Suhu Ruang Bakar", value: "950 – 1.250 °C" },
+                    { label: "Mekanisme Kalor", value: "Radiasi & Konduksi" },
+                    { label: "Material Dinding", value: "SA-516 Gr.70" },
+                    { label: "Serapan Kalor", value: "~45% Total Energi" }
+                ]
+            },
+            {
+                id: 3,
+                code: "03",
+                key: "firetubes",
+                name: "Pipa Api (Fire Tubes)",
+                subtitle: "Multi-Pass Horizontal Smoke Tubes",
+                category: "Transfer Panas Konveksi",
+                pinPos: [0.3, 0.35, 0.75],
+                camPos: [0.5, 1.4, 4.9],
+                targetPos: [0.2, 0.3, 0],
+                func: "Kumpulan pipa baja horizontal yang terendam penuh di dalam air boiler. Gas panas dari ruang pembalik belakang mengalir di bagian dalam pipa untuk memanaskan air di luarnya.",
+                thermo: "Terjadi perpindahan panas konveksi paksa sepanjang permukaan pipa. Gas pembakaran turun suhunya dari ~800 °C menjadi ~200 °C sembari mendidihkan air.",
+                specs: [
+                    { label: "Gas Masuk Pipa", value: "650 – 850 °C" },
+                    { label: "Gas Keluar Pipa", value: "180 – 225 °C" },
+                    { label: "Material Pipa", value: "Seamless SA-192" },
+                    { label: "Serapan Kalor", value: "~55% Total Energi" }
+                ]
+            },
+            {
+                id: 4,
+                code: "04",
+                key: "water",
+                name: "Ruang Air (Water Drum)",
+                subtitle: "Boiler Feedwater & Nucleate Boiling Zone",
+                category: "Fase Cair & Pendidihan",
+                pinPos: [-1.8, 0.65, 0.85],
+                camPos: [-2.0, 1.8, 4.9],
+                targetPos: [-0.5, 0.4, 0],
+                func: "Volume air lunak bertekanan yang merendam seluruh furnace dan pipa api agar panas terserap merata sekaligus mencegah pemanasan berlebih pada logam.",
+                thermo: "Pada tekanan kerja tinggi, titik didih air naik sesuai kurva saturasi uap (misal ~184 °C pada 10 bar). Gelembung uap naik ke permukaan akibat gaya apung.",
+                specs: [
+                    { label: "Titik Didih (10 bar)", value: "~184 °C" },
+                    { label: "pH Air Boiler", value: "10.5 – 11.5" },
+                    { label: "Kesadahan Air", value: "< 2 ppm" },
+                    { label: "Batas Aman Level", value: "+50mm di atas pipa" }
+                ]
+            },
+            {
+                id: 5,
+                code: "05",
+                key: "steamdome",
+                name: "Kubah Uap (Steam Dome)",
+                subtitle: "Steam Disengaging & Moisture Separator Dome",
+                category: "Akumulasi Uap",
+                pinPos: [0.55, 2.15, 0],
+                camPos: [1.6, 3.4, 4.4],
+                targetPos: [0.6, 1.8, 0],
+                func: "Kubah silindris di puncak drum yang mengumpulkan uap jenuh dari permukaan air dan memisahkan percikan butiran air sebelum uap memasuki pipa utama.",
+                thermo: "Memberikan ruang ekspansi vertikal sehingga kecepatan naik melambat sesaat dan tetesan air jatuh kembali, menghasilkan uap jenuh kering (dry saturated steam).",
+                specs: [
+                    { label: "Kualitas Uap", value: "98% – 99.5% Dryness" },
+                    { label: "Tekanan Desain", value: "Hingga 18 bar" },
+                    { label: "Entalpi Uap", value: "~2.780 kJ/kg" },
+                    { label: "Fungsi Utama", value: "Demister / Pemisah Air" }
+                ]
+            },
+            {
+                id: 6,
+                code: "06",
+                key: "steamheader",
+                name: "Pipa Uap Utama & Stop Valve",
+                subtitle: "Vertical Riser & Side-Routed Main Steam Header",
+                category: "Distribusi Uap",
+                pinPos: [0.55, 3.25, -0.35],
+                camPos: [2.4, 4.3, 4.1],
+                targetPos: [0.55, 2.95, -0.45],
+                func: "Saluran keluar utama yang naik vertikal dari puncak Steam Dome, dilengkapi Main Steam Stop Valve serta sambungan siku 90° menyamping agar terpisah bersih dari cerobong asap menuju header distribusi.",
+                thermo: "Sesuai persamaan kontinuitas (Q = A × v), kecepatan aliran uap (m/s) di dalam pipa vertikal maupun horizontal berbanding lurus dengan tekanan kerja serta persentase bukaan katup uap.",
+                specs: [
+                    { label: "Kecepatan Uap Desain", value: "15 – 45 m/s" },
+                    { label: "Rute Pipa Uap", value: "Vertikal Naik + Belok Samping" },
+                    { label: "Material Pipa", value: "Carbon Steel Sch. 40" },
+                    { label: "Jarak Aman Cerobong", value: "Terpisah Bebas Tabrakan" }
+                ]
+            },
+            {
+                id: 7,
+                code: "07",
+                key: "safetyvalve",
+                name: "Katup Pengaman (Safety Valve)",
+                subtitle: "Spring-Loaded Pop-Action Relief Valve",
+                category: "Proteksi Tekanan Lebih",
+                pinPos: [-1.1, 2.3, 0],
+                camPos: [-1.5, 3.4, 3.6],
+                targetPos: [-1.1, 1.9, 0],
+                func: "Perangkat keselamatan otomatis yang akan terangkat penuh (pop-action) membuang uap ke atmosfer jika tekanan di dalam boiler melampaui batas aman (15 Bar).",
+                thermo: "Mengonversi energi tekanan statis berlebih menjadi semburan uap berkecepatan tinggi keluar atmosfer sehingga tekanan drum segera turun ke level aman.",
+                specs: [
+                    { label: "Set Tekanan Buka", value: "15.0 bar (Simulasi)" },
+                    { label: "Mekanisme", value: "Full-Lift Spring Loaded" },
+                    { label: "Standar Kode", value: "ASME Section I" },
+                    { label: "Dudukan Katup", value: "Hardened Stainless" }
+                ]
+            },
+            {
+                id: 8,
+                code: "08",
+                key: "manometer",
+                name: "Manometer & Gelas Duga",
+                subtitle: "Bourdon Pressure Gauge & Sight Glass",
+                category: "Instrumentasi & Monitoring",
+                pinPos: [-2.3, 2.25, 0.35],
+                camPos: [-3.5, 2.8, 3.5],
+                targetPos: [-2.3, 1.5, 0],
+                func: "Manometer menampilkan tekanan aktual boiler secara real-time, sedangkan Gelas Penduga (Sight Glass) di sisi samping memantau ketinggian air di dalam drum.",
+                thermo: "Pipa siphon melingkar menahan kondensat dingin agar uap panas tidak merusak tabung Bourdon; gelas duga bekerja berdasar keseimbangan hidrostatis bejana berhubungan.",
+                specs: [
+                    { label: "Rentang Manometer", value: "0 – 25 bar" },
+                    { label: "Pelindung Panas", value: "Pigtail Siphon Loop" },
+                    { label: "Kaca Gelas Duga", value: "Borosilicate Tempered" },
+                    { label: "Akurasi Ukur", value: "Class 1.0 (±1%)" }
+                ]
+            },
+            {
+                id: 9,
+                code: "09",
+                key: "stack",
+                name: "Cerobong Gas Buang (Flue Stack)",
+                subtitle: "Rear Smokebox & Exhaust Chimney",
+                category: "Gas Buang & Emisi",
+                pinPos: [2.75, 2.55, 0],
+                camPos: [5.1, 3.2, 4.2],
+                targetPos: [2.6, 1.8, 0],
+                func: "Saluran vertikal di belakang atas boiler yang menampung gas buang dari kotak asap (smokebox) setelah melewati pipa api dan membuangnya ke atmosfer.",
+                thermo: "Memanfaatkan gaya apung termal gas panas (natural draft). Suhu gas buang dijaga di atas 135 °C agar uap asam sulfat tidak mengembun dan memicu korosi.",
+                specs: [
+                    { label: "Suhu Gas Buang", value: "175 – 225 °C" },
+                    { label: "Kadar O₂ Buang", value: "2.5% – 4.5%" },
+                    { label: "Titik Embun Asam", value: "> 135 °C" },
+                    { label: "Material Cerobong", value: "Carbon Steel" }
+                ]
+            },
+            {
+                id: 10,
+                code: "10",
+                key: "shell",
+                name: "Rangka, Isolasi & Blowdown",
+                subtitle: "Insulated Pressure Shell, Saddles & Blowdown",
+                category: "Struktur & Efisiensi Termal",
+                pinPos: [1.4, -1.85, 0.6],
+                camPos: [2.6, -1.0, 4.8],
+                targetPos: [0.8, -1.2, 0],
+                func: "Dinding baja bejana tekan berlapis wol mineral isolator panas, dudukan baja penyangga (saddles), serta katup blowdown bawah untuk pembuangan endapan lumpur mineral.",
+                thermo: "Lapisan isolasi menekan rugi-rugi panas radiasi/konveksi ke lingkungan (<1.5%), sedangkan blowdown menjaga kadar TDS air agar tidak membentuk kerak pada pipa api.",
+                specs: [
+                    { label: "Isolasi Termal", value: "Rockwool 100 mm" },
+                    { label: "Rugi Panas Dinding", value: "< 1.5%" },
+                    { label: "Batas TDS Air", value: "< 3.000 ppm" },
+                    { label: "Tipe Penyangga", value: "Heavy Steel Saddles" }
+                ]
+            }
+        ];
+
+        // Global Simulation & UI State
+        let activePartIndex = 0;
+        let shellMode = 'cutaway'; // 'cutaway' | 'xray' | 'solid'
+        let burnerOn = true;
+        let firingRate = 75;       // 10 - 100 %
+        let targetPressure = 10.5; // 2.0 - 18.0 bar
+        let valveOpening = 80;     // 15 - 100 %
+        let showPins = true;
+        let autoRotate = false;
+        let sidebarOpen = false;   // Start collapsed for maximum spacious viewport!
+        let focusMode = false;
+
+        // Real-time Physical Quantities
+        let currentIntensity = 0.75;
+        let actualPressure = 10.5;
+        let steamVelocity = 26.4;  // m/s
+        let steamMassFlow = 3450;  // kg/h
+        let saturationTemp = 186;  // °C
+        let safetyValveOpenAmount = 0;
+
+        // Three.js Variables
+        let scene, camera, renderer, controls;
+        let raycaster, mouse;
+        const interactiveMeshes = [];
+        const partMeshGroups = {};
+        let hoveredPartKey = null;
+
+        // Dynamic 3D Meshes & Particle Systems
+        let shellCutawayGroup, shellFullGroup, shellFullMaterial;
+        let waterSurfaceMesh;
+        let flameLight, flameParticlesMesh, tubeGlowMeshes = [];
+        let bubbleParticlesMesh;
+        let domeSteamParticlesMesh;     // Rising steam inside steam space -> steam dome
+        let headerSteamStreamMesh;      // High-velocity steam jet inside/exiting main steam pipe
+        let steamSpeedStreaksMesh;      // Directional velocity streaks showing m/s speed
+        let safetyValvePlumeMesh;       // Relief steam plume when P > 15 bar
+        let safetyValveCapMesh;
+        let smokeParticlesMesh;
+        let manometerNeedleMesh;
+        let steamValveWheelMesh;
+
+        const clock = new THREE.Clock();
+
+        // Camera Smooth Transition State
+        let isCameraTransitioning = false;
+        const targetCamPos = new THREE.Vector3();
+        const targetControlsLookAt = new THREE.Vector3();
+
+        // Particle State Arrays
+        const flameData = [];
+        const bubbleData = [];
+        const domeSteamData = [];
+        const headerSteamData = [];
+        const streakData = [];
+        const safetyPlumeData = [];
+        const smokeData = [];
+
+        // DOM References
+        const threeMount = document.getElementById('three-mount');
+        const pinsOverlay = document.getElementById('pins-overlay');
+        const hoverTooltip = document.getElementById('hover-tooltip');
+        const partsPillList = document.getElementById('parts-pill-list');
+        const burnerToggleBtn = document.getElementById('burner-toggle-btn');
+        const burnerBtnLabel = document.getElementById('burner-btn-label');
+        const firingRateSlider = document.getElementById('firing-rate');
+        const firingRateVal = document.getElementById('firing-rate-val');
+        const targetPressureSlider = document.getElementById('target-pressure');
+        const targetPressureVal = document.getElementById('target-pressure-val');
+        const valveOpeningSlider = document.getElementById('valve-opening');
+        const valveOpeningVal = document.getElementById('valve-opening-val');
+
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const telemetryPressure = document.getElementById('telemetry-pressure');
+        const telemetryVelocity = document.getElementById('telemetry-velocity');
+        const telemetryFlow = document.getElementById('telemetry-flow');
+        const telemetryTemp = document.getElementById('telemetry-temp');
+        const safetyAlertBanner = document.getElementById('safety-alert-banner');
+
+        // Initialize Three.js Scene
+        function initThree() {
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x070b14, 0.025);
+
+            const width = threeMount.clientWidth;
+            const height = threeMount.clientHeight;
+
+            // Optimized camera FOV & distance so the 3D Boiler fills the wide viewport cleanly
+            camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 120);
+            camera.position.set(-4.3, 2.4, 6.9);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.18;
+            threeMount.appendChild(renderer.domElement);
+
+            // OrbitControls for effortless 360° rotation, zoom & pan
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.minDistance = 2.5;
+            controls.maxDistance = 18;
+            controls.maxPolarAngle = Math.PI * 0.9;
+            controls.target.set(-0.2, 0.25, 0);
+
+            controls.addEventListener('start', () => {
+                isCameraTransitioning = false;
+            });
+
+            // Studio & Industrial Lighting
+            scene.add(new THREE.AmbientLight(0x94a3b8, 0.8));
+            scene.add(new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.65));
+
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.35);
+            keyLight.position.set(6, 10, 8);
+            scene.add(keyLight);
+
+            const backRimLight = new THREE.DirectionalLight(0x38bdf8, 0.85);
+            backRimLight.position.set(-7, 6, -8);
+            scene.add(backRimLight);
+
+            const bottomFillLight = new THREE.DirectionalLight(0xf97316, 0.35);
+            bottomFillLight.position.set(0, -6, 4);
+            scene.add(bottomFillLight);
+
+            buildEnvironment();
+            buildBoiler3D();
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            window.addEventListener('resize', onWindowResize);
+            renderer.domElement.addEventListener('pointermove', onPointerMove);
+            renderer.domElement.addEventListener('pointerdown', onPointerDown);
+            renderer.domElement.addEventListener('pointerup', onPointerUp);
+        }
+
+        function buildEnvironment() {
+            const gridHelper = new THREE.GridHelper(26, 26, 0x334155, 0x1e293b);
+            gridHelper.position.y = -2.25;
+            scene.add(gridHelper);
+
+            const skidMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                metalness: 0.7,
+                roughness: 0.4
+            });
+            const skidBase = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.16, 2.8), skidMat);
+            skidBase.position.set(0.1, -2.17, 0);
+            scene.add(skidBase);
+        }
+
+        function registerPartMesh(mesh, partKey) {
+            mesh.userData.partKey = partKey;
+            interactiveMeshes.push(mesh);
+            if (!partMeshGroups[partKey]) partMeshGroups[partKey] = [];
+            partMeshGroups[partKey].push(mesh);
+        }
+
+        function buildBoiler3D() {
+            const boilerRoot = new THREE.Group();
+            scene.add(boilerRoot);
+
+            const steelBlueMat = new THREE.MeshStandardMaterial({
+                color: 0x475569,
+                metalness: 0.72,
+                roughness: 0.32,
+                side: THREE.DoubleSide
+            });
+
+            const darkSteelMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                metalness: 0.75,
+                roughness: 0.38
+            });
+
+            const chromeMat = new THREE.MeshStandardMaterial({
+                color: 0xcbd5e1,
+                metalness: 0.88,
+                roughness: 0.18
+            });
+
+            const brassMat = new THREE.MeshStandardMaterial({
+                color: 0xd97706,
+                metalness: 0.82,
+                roughness: 0.25
+            });
+
+            const insulationMat = new THREE.MeshStandardMaterial({
+                color: 0xbca356,
+                metalness: 0.05,
+                roughness: 0.9,
+                side: THREE.DoubleSide
+            });
+
+            const spriteTex = createSoftCircleTexture('#ffffff');
+
+            const boilerLength = 5.6;
+            const outerRadius = 1.65;
+            const innerRadius = 1.50;
+
+            // =========================================================
+            // PART 10 (BASE SHELL): CUTAWAY, X-RAY & SOLID OUTER DRUM + SADDLES
+            // =========================================================
+            shellCutawayGroup = new THREE.Group();
+            shellFullGroup = new THREE.Group();
+            shellFullGroup.visible = false;
+
+            // Cutaway outer shell (240° arc leaving front side open for inspection)
+            const cutStart = Math.PI * 0.42;
+            const cutLength = Math.PI * 1.38;
+
+            const outerCutCyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(outerRadius, outerRadius, boilerLength, 48, 1, true, cutStart, cutLength),
+                steelBlueMat
+            );
+            outerCutCyl.rotation.z = Math.PI / 2;
+            shellCutawayGroup.add(outerCutCyl);
+            registerPartMesh(outerCutCyl, 'shell');
+
+            // Rockwool insulation layer between outer & inner shell
+            const insulCutCyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(outerRadius - 0.04, outerRadius - 0.04, boilerLength - 0.04, 48, 1, true, cutStart, cutLength),
+                insulationMat
+            );
+            insulCutCyl.rotation.z = Math.PI / 2;
+            shellCutawayGroup.add(insulCutCyl);
+
+            // Inner pressure shell wall
+            const innerCutCyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(innerRadius, innerRadius, boilerLength - 0.08, 48, 1, true, cutStart, cutLength),
+                darkSteelMat
+            );
+            innerCutCyl.rotation.z = Math.PI / 2;
+            shellCutawayGroup.add(innerCutCyl);
+            registerPartMesh(innerCutCyl, 'shell');
+
+            // Cutaway cross-section rims so wall thickness looks solid
+            const rimThick = outerRadius - innerRadius;
+            [cutStart, cutStart + cutLength].forEach(ang => {
+                const strip = new THREE.Mesh(
+                    new THREE.BoxGeometry(boilerLength - 0.04, rimThick, 0.04),
+                    insulationMat
+                );
+                const midR = (outerRadius + innerRadius) / 2;
+                strip.position.set(0, Math.cos(ang) * midR, Math.sin(ang) * midR);
+                strip.rotation.x = -ang;
+                shellCutawayGroup.add(strip);
+            });
+
+            // Front & Rear End Dished Heads
+            const frontHead = new THREE.Mesh(new THREE.CylinderGeometry(outerRadius, outerRadius, 0.14, 48), steelBlueMat);
+            frontHead.rotation.z = Math.PI / 2;
+            frontHead.position.x = -boilerLength / 2;
+            shellCutawayGroup.add(frontHead);
+            registerPartMesh(frontHead, 'shell');
+
+            const rearHead = new THREE.Mesh(new THREE.CylinderGeometry(outerRadius, outerRadius, 0.16, 48), steelBlueMat);
+            rearHead.rotation.z = Math.PI / 2;
+            rearHead.position.x = boilerLength / 2;
+            shellCutawayGroup.add(rearHead);
+            registerPartMesh(rearHead, 'shell');
+
+            // Rear Smokebox Chamber
+            const smokebox = new THREE.Mesh(new THREE.CylinderGeometry(outerRadius * 0.96, outerRadius * 0.96, 0.72, 48), darkSteelMat);
+            smokebox.rotation.z = Math.PI / 2;
+            smokebox.position.x = boilerLength / 2 + 0.36;
+            shellCutawayGroup.add(smokebox);
+            registerPartMesh(smokebox, 'stack');
+
+            // Full 360° Shell for X-Ray & Solid Modes
+            shellFullMaterial = new THREE.MeshStandardMaterial({
+                color: 0x475569,
+                metalness: 0.72,
+                roughness: 0.32,
+                transparent: true,
+                opacity: 1.0,
+                side: THREE.DoubleSide
+            });
+            const fullCyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(outerRadius, outerRadius, boilerLength + 0.14, 48),
+                shellFullMaterial
+            );
+            fullCyl.rotation.z = Math.PI / 2;
+            shellFullGroup.add(fullCyl);
+            registerPartMesh(fullCyl, 'shell');
+
+            boilerRoot.add(shellCutawayGroup);
+            boilerRoot.add(shellFullGroup);
+
+            // Structural Steel Saddles (Supports)
+            [-1.7, 1.7].forEach(sx => {
+                const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.75, 2.35), darkSteelMat);
+                saddle.position.set(sx, -1.78, 0);
+                boilerRoot.add(saddle);
+                registerPartMesh(saddle, 'shell');
+
+                const footPlate = new THREE.Mesh(new THREE.BoxGeometry(0.56, 0.08, 2.55), chromeMat);
+                footPlate.position.set(sx, -2.08, 0);
+                boilerRoot.add(footPlate);
+                registerPartMesh(footPlate, 'shell');
+            });
+
+            // =========================================================
+            // PART 01: BURNER ASSEMBLY (FRONT LEFT)
+            // =========================================================
+            const burnerGroup = new THREE.Group();
+            burnerGroup.position.set(-boilerLength / 2 - 0.08, -0.52, 0);
+
+            const burnerFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.46, 0.46, 0.14, 32), chromeMat);
+            burnerFlange.rotation.z = Math.PI / 2;
+            burnerGroup.add(burnerFlange);
+            registerPartMesh(burnerFlange, 'burner');
+
+            const burnerHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.40, 0.95, 32), darkSteelMat);
+            burnerHousing.rotation.z = Math.PI / 2;
+            burnerHousing.position.x = -0.52;
+            burnerGroup.add(burnerHousing);
+            registerPartMesh(burnerHousing, 'burner');
+
+            // Forced-Draft Blower Volute
+            const blowerHousing = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.34, 0.32, 28), steelBlueMat);
+            blowerHousing.rotation.x = Math.PI / 2;
+            blowerHousing.position.set(-0.78, -0.18, 0.34);
+            burnerGroup.add(blowerHousing);
+            registerPartMesh(blowerHousing, 'burner');
+
+            // Fuel Gas Train Pipe
+            const fuelPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 1.05, 16), brassMat);
+            fuelPipe.rotation.z = Math.PI / 2;
+            fuelPipe.position.set(-1.35, 0.08, 0);
+            burnerGroup.add(fuelPipe);
+            registerPartMesh(fuelPipe, 'burner');
+
+            boilerRoot.add(burnerGroup);
+
+            // =========================================================
+            // PART 02: CORRUGATED FURNACE CHAMBER & FLAME PARTICLES
+            // =========================================================
+            const furnaceGroup = new THREE.Group();
+            furnaceGroup.position.set(-0.25, -0.52, 0);
+
+            const furnaceMat = new THREE.MeshStandardMaterial({
+                color: 0x334155,
+                metalness: 0.78,
+                roughness: 0.35,
+                side: THREE.DoubleSide
+            });
+
+            // Cutaway furnace cylinder so flame inside is clearly visible
+            const furnaceCyl = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.56, 0.56, 4.4, 36, 1, true, Math.PI * 0.45, Math.PI * 1.35),
+                furnaceMat
+            );
+            furnaceCyl.rotation.z = Math.PI / 2;
+            furnaceGroup.add(furnaceCyl);
+            registerPartMesh(furnaceCyl, 'furnace');
+
+            // Corrugation reinforcement rings along furnace
+            for (let rx = -1.8; rx <= 1.8; rx += 0.6) {
+                const ring = new THREE.Mesh(
+                    new THREE.TorusGeometry(0.57, 0.025, 10, 32, Math.PI * 1.35),
+                    chromeMat
+                );
+                ring.rotation.y = Math.PI / 2;
+                ring.rotation.x = Math.PI * 0.45;
+                ring.position.x = rx;
+                furnaceGroup.add(ring);
+            }
+
+            // Reversal chamber at rear of furnace
+            const reversalBox = new THREE.Mesh(new THREE.CylinderGeometry(0.62, 0.62, 0.55, 28), darkSteelMat);
+            reversalBox.rotation.z = Math.PI / 2;
+            reversalBox.position.x = 2.35;
+            furnaceGroup.add(reversalBox);
+            registerPartMesh(reversalBox, 'furnace');
+
+            boilerRoot.add(furnaceGroup);
+
+            // Dynamic Flame Light & Particles
+            flameLight = new THREE.PointLight(0xff7b00, 3.2, 6.5);
+            flameLight.position.set(-1.3, -0.52, 0.15);
+            boilerRoot.add(flameLight);
+
+            const flameCount = 150;
+            const flameGeo = new THREE.BufferGeometry();
+            const flamePos = new Float32Array(flameCount * 3);
+            const flameColors = new Float32Array(flameCount * 3);
+            for (let i = 0; i < flameCount; i++) {
+                flameData.push({
+                    progress: Math.random(),
+                    speed: 0.75 + Math.random() * 0.75,
+                    angle: Math.random() * Math.PI * 2
+                });
+                flamePos[i * 3] = -2.2;
+                flamePos[i * 3 + 1] = -0.52;
+                flamePos[i * 3 + 2] = 0;
+                flameColors[i * 3] = 1;
+                flameColors[i * 3 + 1] = 0.6;
+                flameColors[i * 3 + 2] = 0.1;
+            }
+            flameGeo.setAttribute('position', new THREE.BufferAttribute(flamePos, 3));
+            flameGeo.setAttribute('color', new THREE.BufferAttribute(flameColors, 3));
+            flameParticlesMesh = new THREE.Points(flameGeo, new THREE.PointsMaterial({
+                size: 0.44,
+                map: spriteTex,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.85,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            }));
+            boilerRoot.add(flameParticlesMesh);
+
+            // =========================================================
+            // PART 03: MULTI-PASS FIRE TUBES (PIPA API)
+            // =========================================================
+            const tubesGroup = new THREE.Group();
+            tubeGlowMeshes = [];
+            const tubeRows = [0.22, 0.44, 0.66];
+            const tubeCols = [-0.52, -0.18, 0.18, 0.52];
+
+            tubeRows.forEach(ty => {
+                tubeCols.forEach(tz => {
+                    const tubeMat = new THREE.MeshStandardMaterial({
+                        color: 0x94a3b8,
+                        emissive: 0xea580c,
+                        emissiveIntensity: 0.4,
+                        metalness: 0.85,
+                        roughness: 0.25
+                    });
+                    const tube = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 5.25, 16), tubeMat);
+                    tube.rotation.z = Math.PI / 2;
+                    tube.position.set(0, ty, tz);
+                    tubesGroup.add(tube);
+                    tubeGlowMeshes.push(tube);
+                    registerPartMesh(tube, 'firetubes');
+                });
+            });
+            boilerRoot.add(tubesGroup);
+
+            // =========================================================
+            // PART 04: BOILER WATER DRUM & BOILING BUBBLES
+            // =========================================================
+            const waterGroup = new THREE.Group();
+
+            // Translucent water volume inside lower/mid drum
+            const waterVolMat = new THREE.MeshPhysicalMaterial({
+                color: 0x0284c7,
+                transparent: true,
+                opacity: 0.34,
+                roughness: 0.15,
+                metalness: 0.05,
+                depthWrite: false
+            });
+            const waterBody = new THREE.Mesh(
+                new THREE.CylinderGeometry(innerRadius - 0.03, innerRadius - 0.03, boilerLength - 0.16, 36, 1, false, Math.PI * 0.65, Math.PI * 1.15),
+                waterVolMat
+            );
+            waterBody.rotation.z = Math.PI / 2;
+            waterGroup.add(waterBody);
+            registerPartMesh(waterBody, 'water');
+
+            // Animated wavy water surface plane at y = 0.88
+            const surfGeo = new THREE.PlaneGeometry(boilerLength - 0.2, 2.35, 36, 14);
+            surfGeo.rotateX(-Math.PI / 2);
+            const surfMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                emissive: 0x0369a1,
+                emissiveIntensity: 0.25,
+                transparent: true,
+                opacity: 0.62,
+                roughness: 0.18,
+                side: THREE.DoubleSide
+            });
+            waterSurfaceMesh = new THREE.Mesh(surfGeo, surfMat);
+            waterSurfaceMesh.position.set(0, 0.88, -0.05);
+            waterGroup.add(waterSurfaceMesh);
+            registerPartMesh(waterSurfaceMesh, 'water');
+
+            boilerRoot.add(waterGroup);
+
+            // Nucleate Boiling Bubbles
+            const bubbleCount = 120;
+            const bubbleGeo = new THREE.BufferGeometry();
+            const bubblePos = new Float32Array(bubbleCount * 3);
+            for (let i = 0; i < bubbleCount; i++) {
+                const bx = (Math.random() - 0.5) * 4.5;
+                const by = -0.3 + Math.random() * 1.15;
+                const bz = (Math.random() - 0.5) * 1.4;
+                bubbleData.push({
+                    x: bx,
+                    y: by,
+                    z: bz,
+                    speed: 0.35 + Math.random() * 0.55,
+                    phase: Math.random() * Math.PI * 2
+                });
+                bubblePos[i * 3] = bx;
+                bubblePos[i * 3 + 1] = by;
+                bubblePos[i * 3 + 2] = bz;
+            }
+            bubbleGeo.setAttribute('position', new THREE.BufferAttribute(bubblePos, 3));
+            bubbleParticlesMesh = new THREE.Points(bubbleGeo, new THREE.PointsMaterial({
+                size: 0.11,
+                map: spriteTex,
+                color: 0xe0f2fe,
+                transparent: true,
+                opacity: 0.78,
+                depthWrite: false
+            }));
+            boilerRoot.add(bubbleParticlesMesh);
+
+            // =========================================================
+            // PART 05: STEAM DOME (KUBAH UAP)
+            // =========================================================
+            const domeGroup = new THREE.Group();
+            domeGroup.position.set(0.55, outerRadius, 0);
+
+            const domeWallMat = new THREE.MeshStandardMaterial({
+                color: 0x64748b,
+                metalness: 0.78,
+                roughness: 0.26,
+                transparent: true,
+                opacity: 0.82,
+                side: THREE.DoubleSide
+            });
+
+            const domeCyl = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.44, 0.75, 32), domeWallMat);
+            domeCyl.position.y = 0.35;
+            domeGroup.add(domeCyl);
+            registerPartMesh(domeCyl, 'steamdome');
+
+            const domeCap = new THREE.Mesh(
+                new THREE.SphereGeometry(0.42, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+                domeWallMat
+            );
+            domeCap.position.y = 0.725;
+            domeGroup.add(domeCap);
+            registerPartMesh(domeCap, 'steamdome');
+
+            const domeBaseFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.06, 32), chromeMat);
+            domeBaseFlange.position.y = 0.02;
+            domeGroup.add(domeBaseFlange);
+            registerPartMesh(domeBaseFlange, 'steamdome');
+
+            boilerRoot.add(domeGroup);
+
+            // =========================================================
+            // PART 06: MAIN STEAM HEADER & STOP VALVE (UPWARD + SIDE-ROUTED AWAY FROM STACK)
+            // =========================================================
+            const headerGroup = new THREE.Group();
+            headerGroup.position.set(0.55, outerRadius, 0);
+
+            const translucentPipeMat = new THREE.MeshStandardMaterial({
+                color: 0xcbd5e1,
+                metalness: 0.85,
+                roughness: 0.2,
+                transparent: true,
+                opacity: 0.72
+            });
+
+            // Flange on top of Steam Dome (local y = 0.99 -> world y = 2.64)
+            const domeTopFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.05, 24), chromeMat);
+            domeTopFlange.position.set(0, 1.00, 0);
+            headerGroup.add(domeTopFlange);
+            registerPartMesh(domeTopFlange, 'steamheader');
+
+            // Tall Vertical Riser Pipe going straight UP (local y = 1.00 to 1.85 -> world y = 2.65 to 3.50)
+            const steamPipeVert = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.085, 0.085, 0.85, 20),
+                translucentPipeMat
+            );
+            steamPipeVert.position.set(0, 1.425, 0);
+            headerGroup.add(steamPipeVert);
+            registerPartMesh(steamPipeVert, 'steamheader');
+
+            // Main Steam Stop Valve installed along the high vertical riser (local y = 1.32 -> world y = 2.97)
+            const stopValveBody = new THREE.Mesh(new THREE.SphereGeometry(0.16, 20, 16), brassMat);
+            stopValveBody.position.set(0, 1.32, 0);
+            headerGroup.add(stopValveBody);
+            registerPartMesh(stopValveBody, 'steamheader');
+
+            // Horizontal Valve Stem & Handwheel extending toward front (+Z) for easy operator access
+            const valveStem = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.24, 12), chromeMat);
+            valveStem.rotation.x = Math.PI / 2;
+            valveStem.position.set(0, 1.32, 0.20);
+            headerGroup.add(valveStem);
+
+            steamValveWheelMesh = new THREE.Mesh(
+                new THREE.TorusGeometry(0.15, 0.022, 12, 24),
+                new THREE.MeshStandardMaterial({ color: 0x10b981, roughness: 0.35 })
+            );
+            steamValveWheelMesh.position.set(0, 1.32, 0.32);
+            headerGroup.add(steamValveWheelMesh);
+            registerPartMesh(steamValveWheelMesh, 'steamheader');
+
+            // 90-Degree Elbow at Top (local y = 1.85 -> world y = 3.50) turning cleanly toward Rear/Side (-Z), well clear of Flue Stack (+X)
+            const steamElbow = new THREE.Mesh(
+                new THREE.TorusGeometry(0.16, 0.085, 16, 24, Math.PI / 2),
+                translucentPipeMat
+            );
+            steamElbow.rotation.y = Math.PI / 2;
+            steamElbow.position.set(0, 1.85, -0.16);
+            headerGroup.add(steamElbow);
+            registerPartMesh(steamElbow, 'steamheader');
+
+            // Side-Routed Horizontal Header Pipe going toward -Z (local y = 2.01 -> world y = 3.66, z = -0.16 to -1.56)
+            const steamPipeSide = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.085, 0.085, 1.40, 20),
+                translucentPipeMat
+            );
+            steamPipeSide.rotation.x = Math.PI / 2;
+            steamPipeSide.position.set(0, 2.01, -0.86);
+            headerGroup.add(steamPipeSide);
+            registerPartMesh(steamPipeSide, 'steamheader');
+
+            // Outlet Flange & Support Hanger Bracket at end of side-routed header
+            const outletFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 0.05, 24), chromeMat);
+            outletFlange.rotation.x = Math.PI / 2;
+            outletFlange.position.set(0, 2.01, -1.56);
+            headerGroup.add(outletFlange);
+            registerPartMesh(outletFlange, 'steamheader');
+
+            const hangerStrut = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 1.15, 12), darkSteelMat);
+            hangerStrut.position.set(0, 1.42, -1.15);
+            headerGroup.add(hangerStrut);
+
+            const hangerClamp = new THREE.Mesh(new THREE.TorusGeometry(0.10, 0.022, 10, 20), darkSteelMat);
+            hangerClamp.position.set(0, 2.01, -1.15);
+            headerGroup.add(hangerClamp);
+
+            boilerRoot.add(headerGroup);
+
+            // 1) Steam rising from water surface into Steam Dome
+            const domeSteamCount = 95;
+            const domeSteamGeo = new THREE.BufferGeometry();
+            const domeSteamPos = new Float32Array(domeSteamCount * 3);
+            for (let i = 0; i < domeSteamCount; i++) {
+                const sx = (Math.random() - 0.5) * 4.4;
+                const sy = 0.94 + Math.random() * 1.3;
+                const sz = (Math.random() - 0.5) * 1.1;
+                domeSteamData.push({
+                    x: sx,
+                    y: sy,
+                    z: sz,
+                    speed: 0.35 + Math.random() * 0.45,
+                    phase: Math.random() * Math.PI * 2
+                });
+                domeSteamPos[i * 3] = sx;
+                domeSteamPos[i * 3 + 1] = sy;
+                domeSteamPos[i * 3 + 2] = sz;
+            }
+            domeSteamGeo.setAttribute('position', new THREE.BufferAttribute(domeSteamPos, 3));
+            domeSteamParticlesMesh = new THREE.Points(domeSteamGeo, new THREE.PointsMaterial({
+                size: 0.32,
+                map: spriteTex,
+                color: 0xe0f2fe,
+                transparent: true,
+                opacity: 0.38,
+                depthWrite: false
+            }));
+            boilerRoot.add(domeSteamParticlesMesh);
+
+            // 2) High-Velocity Steam Plume shooting out of Main Steam Header (responds to Steam Velocity m/s)
+            const headerSteamCount = 130;
+            const headerSteamGeo = new THREE.BufferGeometry();
+            const headerSteamPos = new Float32Array(headerSteamCount * 3);
+            for (let i = 0; i < headerSteamCount; i++) {
+                headerSteamData.push({
+                    progress: Math.random(),
+                    speedFactor: 0.7 + Math.random() * 0.6,
+                    angle: Math.random() * Math.PI * 2,
+                    radialOffset: Math.random()
+                });
+                headerSteamPos[i * 3] = 0.55;
+                headerSteamPos[i * 3 + 1] = 2.97;
+                headerSteamPos[i * 3 + 2] = 0;
+            }
+            headerSteamGeo.setAttribute('position', new THREE.BufferAttribute(headerSteamPos, 3));
+            headerSteamStreamMesh = new THREE.Points(headerSteamGeo, new THREE.PointsMaterial({
+                size: 0.24,
+                map: spriteTex,
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.75,
+                depthWrite: false,
+                blending: THREE.AdditiveBlending
+            }));
+            boilerRoot.add(headerSteamStreamMesh);
+
+            // 3) Directional Velocity Streaks (LineSegments inside Steam Space & Header showing m/s speed)
+            const streakCount = 48;
+            const streakGeo = new THREE.BufferGeometry();
+            const streakPositions = new Float32Array(streakCount * 6); // 2 vertices per line
+            for (let i = 0; i < streakCount; i++) {
+                streakData.push({
+                    progress: Math.random(),
+                    speedFactor: 0.8 + Math.random() * 0.4,
+                    laneY: (Math.random() - 0.5) * 0.08,
+                    laneZ: (Math.random() - 0.5) * 0.08,
+                    inHeader: i < 28 // First 28 inside main steam header, remaining 20 rising into dome
+                });
+            }
+            streakGeo.setAttribute('position', new THREE.BufferAttribute(streakPositions, 3));
+            steamSpeedStreaksMesh = new THREE.LineSegments(streakGeo, new THREE.LineBasicMaterial({
+                color: 0x7dd3fc,
+                transparent: true,
+                opacity: 0.85
+            }));
+            boilerRoot.add(steamSpeedStreaksMesh);
+
+            // =========================================================
+            // PART 07: SAFETY VALVE & OVERPRESSURE RELIEF PLUME
+            // =========================================================
+            const safetyGroup = new THREE.Group();
+            safetyGroup.position.set(-1.1, outerRadius, 0);
+
+            const svBase = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.14, 0.32, 20), darkSteelMat);
+            svBase.position.y = 0.16;
+            safetyGroup.add(svBase);
+            registerPartMesh(svBase, 'safetyvalve');
+
+            const svFlange = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 0.06, 20), chromeMat);
+            svFlange.position.y = 0.32;
+            safetyGroup.add(svFlange);
+            registerPartMesh(svFlange, 'safetyvalve');
+
+            const svSpringBody = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.12, 0.36, 20), brassMat);
+            svSpringBody.position.y = 0.52;
+            safetyGroup.add(svSpringBody);
+            registerPartMesh(svSpringBody, 'safetyvalve');
+
+            safetyValveCapMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, 0.14, 16), chromeMat);
+            safetyValveCapMesh.position.y = 0.76;
+            safetyGroup.add(safetyValveCapMesh);
+            registerPartMesh(safetyValveCapMesh, 'safetyvalve');
+
+            boilerRoot.add(safetyGroup);
+
+            // Safety Valve Blow-off Steam Jet (Active when P > 15.0 Bar)
+            const safetyPlumeCount = 70;
+            const safetyPlumeGeo = new THREE.BufferGeometry();
+            const safetyPlumePos = new Float32Array(safetyPlumeCount * 3);
+            for (let i = 0; i < safetyPlumeCount; i++) {
+                safetyPlumeData.push({
+                    progress: Math.random(),
+                    speed: 0.8 + Math.random() * 0.6,
+                    angle: Math.random() * Math.PI * 2
+                });
+            }
+            safetyPlumeGeo.setAttribute('position', new THREE.BufferAttribute(safetyPlumePos, 3));
+            safetyValvePlumeMesh = new THREE.Points(safetyPlumeGeo, new THREE.PointsMaterial({
+                size: 0.32,
+                map: spriteTex,
+                color: 0xfef2f2,
+                transparent: true,
+                opacity: 0.85,
+                depthWrite: false
+            }));
+            safetyValvePlumeMesh.visible = false;
+            boilerRoot.add(safetyValvePlumeMesh);
+
+            // =========================================================
+            // PART 08: MANOMETER & SIGHT GLASS
+            // =========================================================
+            const manoGroup = new THREE.Group();
+            manoGroup.position.set(-2.3, outerRadius, 0.35);
+
+            const siphonPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.38, 12), brassMat);
+            siphonPipe.position.y = 0.19;
+            manoGroup.add(siphonPipe);
+            registerPartMesh(siphonPipe, 'manometer');
+
+            const gaugeCase = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.22, 0.08, 28), chromeMat);
+            gaugeCase.rotation.x = Math.PI / 2;
+            gaugeCase.position.y = 0.52;
+            manoGroup.add(gaugeCase);
+            registerPartMesh(gaugeCase, 'manometer');
+
+            const dialFace = new THREE.Mesh(
+                new THREE.CircleGeometry(0.19, 28),
+                new THREE.MeshBasicMaterial({ color: 0xf8fafc, side: THREE.DoubleSide })
+            );
+            dialFace.position.set(0, 0.52, 0.045);
+            manoGroup.add(dialFace);
+            registerPartMesh(dialFace, 'manometer');
+
+            const needlePivot = new THREE.Group();
+            needlePivot.position.set(0, 0.52, 0.052);
+            const needleBar = new THREE.Mesh(
+                new THREE.BoxGeometry(0.018, 0.14, 0.008),
+                new THREE.MeshBasicMaterial({ color: 0xef4444 })
+            );
+            needleBar.position.y = 0.05;
+            needlePivot.add(needleBar);
+            manoGroup.add(needlePivot);
+            manometerNeedleMesh = needlePivot;
+
+            boilerRoot.add(manoGroup);
+
+            // Sight Glass on Back/Left Side
+            const sightGroup = new THREE.Group();
+            sightGroup.position.set(-2.65, 0.55, -1.28);
+            [-0.45, 0.45].forEach(vy => {
+                const cock = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.35, 16), brassMat);
+                cock.rotation.x = Math.PI / 2;
+                cock.position.set(0, vy, 0.12);
+                sightGroup.add(cock);
+                registerPartMesh(cock, 'manometer');
+            });
+
+            const glassTube = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.04, 0.04, 0.90, 16),
+                new THREE.MeshPhysicalMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72, roughness: 0.1 })
+            );
+            glassTube.position.set(0, 0, -0.02);
+            sightGroup.add(glassTube);
+            registerPartMesh(glassTube, 'manometer');
+
+            const sightWater = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.028, 0.028, 0.55, 12),
+                new THREE.MeshBasicMaterial({ color: 0x0284c7 })
+            );
+            sightWater.position.set(0, -0.16, -0.02);
+            sightGroup.add(sightWater);
+            boilerRoot.add(sightGroup);
+
+            // =========================================================
+            // PART 09: EXHAUST STACK / CEROBONG
+            // =========================================================
+            const stackGroup = new THREE.Group();
+            stackGroup.position.set(2.45, outerRadius - 0.1, 0);
+
+            const stackChimney = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.35, 1.15, 32), darkSteelMat);
+            stackChimney.position.y = 0.55;
+            stackGroup.add(stackChimney);
+            registerPartMesh(stackChimney, 'stack');
+
+            const stackRim = new THREE.Mesh(new THREE.TorusGeometry(0.32, 0.03, 12, 32), chromeMat);
+            stackRim.rotation.x = Math.PI / 2;
+            stackRim.position.y = 1.12;
+            stackGroup.add(stackRim);
+            registerPartMesh(stackRim, 'stack');
+
+            boilerRoot.add(stackGroup);
+
+            const smokeCount = 50;
+            const smokeGeo = new THREE.BufferGeometry();
+            const smokePositions = new Float32Array(smokeCount * 3);
+            for (let i = 0; i < smokeCount; i++) {
+                smokeData.push({
+                    progress: Math.random(),
+                    speed: 0.25 + Math.random() * 0.25,
+                    offsetX: (Math.random() - 0.5) * 0.22,
+                    offsetZ: (Math.random() - 0.5) * 0.22
+                });
+            }
+            smokeGeo.setAttribute('position', new THREE.BufferAttribute(smokePositions, 3));
+            smokeParticlesMesh = new THREE.Points(smokeGeo, new THREE.PointsMaterial({
+                size: 0.45,
+                map: spriteTex,
+                color: 0x94a3b8,
+                transparent: true,
+                opacity: 0.26,
+                depthWrite: false
+            }));
+            boilerRoot.add(smokeParticlesMesh);
+
+            // =========================================================
+            // PART 10: BOTTOM BLOWDOWN & FEEDWATER PIPING
+            // =========================================================
+            const blowdownGroup = new THREE.Group();
+            const dropPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.55, 16), chromeMat);
+            dropPipe.position.set(1.1, -1.78, 0.35);
+            blowdownGroup.add(dropPipe);
+            registerPartMesh(dropPipe, 'shell');
+
+            const horizPipe = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 2.2, 16), chromeMat);
+            horizPipe.rotation.z = Math.PI / 2;
+            horizPipe.position.set(2.15, -2.02, 0.35);
+            blowdownGroup.add(horizPipe);
+            registerPartMesh(horizPipe, 'shell');
+
+            const bdValveBody = new THREE.Mesh(new THREE.SphereGeometry(0.14, 20, 16), brassMat);
+            bdValveBody.position.set(1.65, -2.02, 0.35);
+            blowdownGroup.add(bdValveBody);
+            registerPartMesh(bdValveBody, 'shell');
+
+            const bdWheel = new THREE.Mesh(new THREE.TorusGeometry(0.13, 0.02, 10, 20), new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.4 }));
+            bdWheel.position.set(1.65, -1.80, 0.35);
+            bdWheel.rotation.x = Math.PI / 2;
+            blowdownGroup.add(bdWheel);
+            registerPartMesh(bdWheel, 'shell');
+
+            boilerRoot.add(blowdownGroup);
+        }
+
+        function createSoftCircleTexture(hexColor) {
+            const size = 64;
+            const c = document.createElement('canvas');
+            c.width = size;
+            c.height = size;
+            const context = c.getContext('2d');
+            const grad = context.createRadialGradient(size / 2, size / 2, 2, size / 2, size / 2, size / 2);
+            grad.addColorStop(0, hexColor);
+            grad.addColorStop(0.4, 'rgba(255,255,255,0.65)');
+            grad.addColorStop(1, 'rgba(255,255,255,0)');
+            context.fillStyle = grad;
+            context.fillRect(0, 0, size, size);
+            return new THREE.CanvasTexture(c);
+        }
+
+        function setShellMode(mode) {
+            shellMode = mode;
+            document.querySelectorAll('.shell-mode-btn').forEach(btn => {
+                if (btn.dataset.shellMode === mode) {
+                    btn.className = 'shell-mode-btn px-2 sm:px-2.5 py-1 rounded-lg text-[11px] font-semibold transition bg-orange-600 text-white shadow';
+                } else {
+                    btn.className = 'shell-mode-btn px-2 sm:px-2.5 py-1 rounded-lg text-[11px] font-medium text-slate-400 hover:text-white transition';
+                }
+            });
+
+            if (!shellCutawayGroup || !shellFullGroup) return;
+
+            if (mode === 'cutaway') {
+                shellCutawayGroup.visible = true;
+                shellFullGroup.visible = false;
+            } else if (mode === 'xray') {
+                shellCutawayGroup.visible = false;
+                shellFullGroup.visible = true;
+                if (shellFullMaterial) {
+                    shellFullMaterial.opacity = 0.22;
+                    shellFullMaterial.depthWrite = false;
+                }
+            } else if (mode === 'solid') {
+                shellCutawayGroup.visible = false;
+                shellFullGroup.visible = true;
+                if (shellFullMaterial) {
+                    shellFullMaterial.opacity = 1.0;
+                    shellFullMaterial.depthWrite = true;
+                }
+            }
+        }
+
+        function buildPinElements() {
+            pinsOverlay.innerHTML = '';
+            boilerParts.forEach((part, index) => {
+                const pinBtn = document.createElement('button');
+                pinBtn.type = 'button';
+                pinBtn.id = `pin-3d-${index}`;
+                pinBtn.className = 'pin-3d group focus:outline-none';
+                pinBtn.innerHTML = `
+                    <span class="pin-ring absolute inset-0 rounded-full bg-sky-400"></span>
+                    <span class="pin-core relative flex items-center justify-center w-6 h-6 rounded-full border-2 bg-slate-900/90 text-white border-sky-400 font-mono text-[11px] font-bold shadow-lg transition-all">
+                        ${part.id}
+                    </span>
+                    <span class="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-2.5 py-1 rounded-lg bg-slate-950/95 border border-slate-700 text-white text-[11px] font-medium whitespace-nowrap shadow-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                        ${part.name}
+                    </span>
+                `;
+                pinBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    selectPart(index, true, true);
+                });
+                pinsOverlay.appendChild(pinBtn);
+            });
+        }
+
+        function updateProjectedPins() {
+            if (!showPins || focusMode) {
+                pinsOverlay.style.display = 'none';
+                return;
+            }
+            pinsOverlay.style.display = 'block';
+
+            const width = threeMount.clientWidth;
+            const height = threeMount.clientHeight;
+            const tempVec = new THREE.Vector3();
+
+            boilerParts.forEach((part, index) => {
+                const el = document.getElementById(`pin-3d-${index}`);
+                if (!el) return;
+
+                tempVec.set(part.pinPos[0], part.pinPos[1], part.pinPos[2]);
+                tempVec.project(camera);
+
+                if (tempVec.z > 1) {
+                    el.style.display = 'none';
+                    return;
+                }
+                el.style.display = 'block';
+
+                const x = (tempVec.x * 0.5 + 0.5) * width;
+                const y = (-(tempVec.y * 0.5) + 0.5) * height;
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+
+                const isSelected = index === activePartIndex;
+                const ring = el.querySelector('.pin-ring');
+                const core = el.querySelector('.pin-core');
+                if (isSelected) {
+                    el.style.zIndex = '25';
+                    ring.className = 'pin-ring absolute inset-0 rounded-full bg-orange-500';
+                    core.className = 'pin-core relative flex items-center justify-center w-7 h-7 rounded-full border-2 bg-orange-600 text-white border-white font-mono text-[11px] font-bold shadow-lg shadow-orange-500/60 scale-110 transition-all';
+                } else {
+                    el.style.zIndex = '15';
+                    ring.className = 'pin-ring absolute inset-0 rounded-full bg-sky-400';
+                    core.className = 'pin-core relative flex items-center justify-center w-6 h-6 rounded-full border-2 bg-slate-900/90 text-slate-100 border-sky-400/80 hover:bg-orange-600 hover:border-white font-mono text-[11px] font-bold shadow-lg transition-all';
+                }
+            });
+        }
+
+        function renderPartPills() {
+            partsPillList.innerHTML = '';
+            boilerParts.forEach((part, index) => {
+                const isSelected = index === activePartIndex;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `shrink-0 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium transition border ${
+                    isSelected
+                        ? 'bg-orange-600/25 border-orange-500 text-orange-300 shadow-sm'
+                        : 'bg-slate-900/85 border-slate-800 text-slate-400 hover:text-white hover:border-slate-700'
+                }`;
+                btn.innerHTML = `
+                    <span class="font-mono font-bold ${isSelected ? 'text-orange-400' : 'text-slate-500'}">${part.code}</span>
+                    <span>${part.name.split(' (')[0]}</span>
+                `;
+                btn.addEventListener('click', () => selectPart(index, true, true));
+                partsPillList.appendChild(btn);
+            });
+        }
+
+        function setSidebarState(open) {
+            sidebarOpen = open;
+            const sidebar = document.getElementById('inspector-sidebar');
+            const toggleText = document.getElementById('toggle-sidebar-text');
+            if (sidebarOpen) {
+                sidebar.classList.remove('translate-x-[115%]', 'opacity-0', 'pointer-events-none');
+                sidebar.classList.add('translate-x-0', 'opacity-100', 'pointer-events-auto');
+                toggleText.textContent = 'Tutup Detail';
+            } else {
+                sidebar.classList.add('translate-x-[115%]', 'opacity-0', 'pointer-events-none');
+                sidebar.classList.remove('translate-x-0', 'opacity-100', 'pointer-events-auto');
+                toggleText.textContent = 'Detail Part';
+            }
+        }
+
+        function setFocusMode(enabled) {
+            focusMode = enabled;
+            const topHeader = document.getElementById('top-header');
+            const bottomDeck = document.getElementById('bottom-deck');
+            const exitFocusBtn = document.getElementById('exit-focus-btn');
+
+            if (focusMode) {
+                setSidebarState(false);
+                topHeader.classList.add('-translate-y-32', 'opacity-0', 'pointer-events-none');
+                bottomDeck.classList.add('translate-y-32', 'opacity-0', 'pointer-events-none');
+                exitFocusBtn.classList.remove('hidden');
+                showToast('Mode Fokus Layar Penuh aktif. Seret untuk memutar model 360°.');
+            } else {
+                topHeader.classList.remove('-translate-y-32', 'opacity-0', 'pointer-events-none');
+                bottomDeck.classList.remove('translate-y-32', 'opacity-0', 'pointer-events-none');
+                exitFocusBtn.classList.add('hidden');
+            }
+        }
+
+        function selectPart(index, moveCamera = true, openDrawer = false) {
+            activePartIndex = (index + boilerParts.length) % boilerParts.length;
+            const part = boilerParts[activePartIndex];
+
+            document.getElementById('part-number-badge').textContent = part.code;
+            document.getElementById('part-category').textContent = part.category;
+            document.getElementById('part-title').textContent = part.name;
+            document.getElementById('part-subtitle').textContent = part.subtitle;
+            document.getElementById('part-function').textContent = part.func;
+            document.getElementById('part-thermo').textContent = part.thermo;
+            document.getElementById('tour-counter').textContent = `${part.code}/${boilerParts.length}`;
+
+            const specsContainer = document.getElementById('part-specs');
+            specsContainer.innerHTML = part.specs.map(s => `
+                <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-2">
+                    <div class="text-[10px] text-slate-400 mb-0.5">${s.label}</div>
+                    <div class="text-xs font-mono font-semibold text-slate-100">${s.value}</div>
+                </div>
+            `).join('');
+
+            renderPartPills();
+
+            if (openDrawer && !focusMode) {
+                setSidebarState(true);
+            }
+
+            if (moveCamera) {
+                autoRotate = false;
+                controls.autoRotate = false;
+                document.getElementById('auto-rotate-text').textContent = 'Putar 360°';
+                targetCamPos.set(part.camPos[0], part.camPos[1], part.camPos[2]);
+                targetControlsLookAt.set(part.targetPos[0], part.targetPos[1], part.targetPos[2]);
+                isCameraTransitioning = true;
+            }
+        }
+
+        function setCameraPreset(preset) {
+            autoRotate = false;
+            controls.autoRotate = false;
+            document.getElementById('auto-rotate-text').textContent = 'Putar 360°';
+
+            targetControlsLookAt.set(0, 0.2, 0);
+            switch (preset) {
+                case 'iso':
+                    targetCamPos.set(-4.3, 2.4, 6.9);
+                    break;
+                case 'front':
+                    targetCamPos.set(-7.8, 0.6, 0);
+                    break;
+                case 'right':
+                    targetCamPos.set(0, 0.7, 7.8);
+                    break;
+                case 'left':
+                    targetCamPos.set(0, 0.7, -7.8);
+                    break;
+                case 'back':
+                    targetCamPos.set(7.8, 1.1, 0);
+                    break;
+                case 'top':
+                    targetCamPos.set(0, 8.6, 1.4);
+                    break;
+            }
+            isCameraTransitioning = true;
+        }
+
+        // Raycasting Interaction
+        function onPointerMove(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(interactiveMeshes, false);
+
+            if (intersects.length > 0) {
+                const hitKey = intersects[0].object.userData.partKey;
+                const foundPart = boilerParts.find(p => p.key === hitKey);
+                if (foundPart) {
+                    hoveredPartKey = hitKey;
+                    renderer.domElement.style.cursor = 'pointer';
+                    hoverTooltip.textContent = `${foundPart.code}. ${foundPart.name}`;
+                    hoverTooltip.style.left = `${event.clientX + 14}px`;
+                    hoverTooltip.style.top = `${event.clientY + 14}px`;
+                    hoverTooltip.classList.remove('hidden');
+                    return;
+                }
+            }
+            hoveredPartKey = null;
+            renderer.domElement.style.cursor = 'grab';
+            hoverTooltip.classList.add('hidden');
+        }
+
+        let pointerDownPos = { x: 0, y: 0 };
+        function onPointerDown(event) {
+            pointerDownPos = { x: event.clientX, y: event.clientY };
+        }
+        function onPointerUp(event) {
+            const dist = Math.hypot(event.clientX - pointerDownPos.x, event.clientY - pointerDownPos.y);
+            if (dist < 5 && hoveredPartKey) {
+                const idx = boilerParts.findIndex(p => p.key === hoveredPartKey);
+                if (idx !== -1) selectPart(idx, true, true);
+            }
+        }
+
+        function onWindowResize() {
+            if (!renderer || !camera) return;
+            const width = threeMount.clientWidth;
+            const height = threeMount.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        let toastTimer;
+        function showToast(msg) {
+            const box = document.getElementById('toast-box');
+            document.getElementById('toast-message').textContent = msg;
+            box.classList.remove('-translate-y-16', 'opacity-0');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => {
+                box.classList.add('-translate-y-16', 'opacity-0');
+            }, 2600);
+        }
+
+        /**
+         * MAIN THERMODYNAMIC & 3D PARTICLE ANIMATION LOOP
+         * Calculates real-time Pressure (Bar), Saturation Temp (°C), Mass Flow (kg/h),
+         * and Steam Velocity (m/s), then drives 3D steam particle speed & streaks!
+         */
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.05);
+            const elapsed = clock.getElapsedTime();
+
+            // 1. Thermal Firing Intensity
+            const targetFire = burnerOn ? (firingRate / 100) : 0;
+            currentIntensity += (targetFire - currentIntensity) * 0.05;
+
+            // 2. Real-Time Boiler Pressure Dynamics (Bar)
+            // Pressure approaches targetPressure when burner is active, or decays when burner is off
+            const desiredPressure = burnerOn
+                ? Math.max(1.5, targetPressure * (0.45 + 0.55 * currentIntensity))
+                : 1.2;
+            actualPressure += (desiredPressure - actualPressure) * 0.035;
+
+            // 3. Saturation Temperature (°C) from Saturated Steam Approximation: T_sat ≈ 100 + 34.5 * ln(P)
+            saturationTemp = Math.round(100 + 33.8 * Math.log(Math.max(1.0, actualPressure)));
+
+            // 4. Steam Velocity (m/s) & Mass Flow (kg/h) driven by Pressure & Main Steam Valve Opening
+            const valveFactor = valveOpening / 100;
+            // Higher pressure + wider valve opening => faster steam flow velocity (up to ~48 m/s)
+            const targetVelocity = (actualPressure > 1.3)
+                ? (3.5 + actualPressure * 2.15) * (0.35 + 0.65 * valveFactor) * (0.3 + 0.7 * currentIntensity)
+                : 0.4;
+            steamVelocity += (targetVelocity - steamVelocity) * 0.06;
+
+            steamMassFlow = Math.round(steamVelocity * (actualPressure * 11.2));
+
+            // 5. Safety Valve Overpressure Trigger (> 15.0 Bar)
+            const isOverpressure = actualPressure > 15.0;
+            const targetSafetyOpen = isOverpressure ? Math.min(1, (actualPressure - 15.0) / 2.0) : 0;
+            safetyValveOpenAmount += (targetSafetyOpen - safetyValveOpenAmount) * 0.08;
+
+            // Update Live HUD Telemetry Readouts
+            telemetryPressure.textContent = `${actualPressure.toFixed(1)} bar`;
+            telemetryVelocity.textContent = `${steamVelocity.toFixed(1)} m/s`;
+            telemetryFlow.textContent = `${steamMassFlow.toLocaleString('id-ID')} kg/h`;
+            telemetryTemp.textContent = `${saturationTemp} °C`;
+
+            if (isOverpressure) {
+                statusDot.className = 'w-2 h-2 rounded-full bg-red-500 animate-ping';
+                statusText.textContent = 'OVERPRESSURE';
+                statusText.className = 'text-[11px] font-mono font-bold text-red-400';
+                safetyAlertBanner.classList.remove('hidden');
+            } else if (burnerOn) {
+                statusDot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+                statusText.textContent = 'NORMAL';
+                statusText.className = 'text-[11px] font-mono font-bold text-emerald-400';
+                safetyAlertBanner.classList.add('hidden');
+            } else {
+                statusDot.className = 'w-2 h-2 rounded-full bg-amber-400';
+                statusText.textContent = 'STANDBY';
+                statusText.className = 'text-[11px] font-mono font-bold text-amber-400';
+                safetyAlertBanner.classList.add('hidden');
+            }
+
+            // 6. Animate 3D Mechanical Indicators (Manometer Needle, Steam Valve Wheel, Safety Valve Cap)
+            if (manometerNeedleMesh) {
+                // Map 0..18 bar to needle rotation angle
+                const normP = Math.min(1, actualPressure / 18);
+                manometerNeedleMesh.rotation.z = 1.8 - normP * 3.6;
+            }
+            if (steamValveWheelMesh) {
+                steamValveWheelMesh.rotation.y = valveFactor * Math.PI * 3;
+            }
+            if (safetyValveCapMesh) {
+                safetyValveCapMesh.position.y = 0.76 + safetyValveOpenAmount * 0.14;
+            }
+
+            // 7. Animate Furnace Flame & Fire Tube Glow
+            if (flameLight) {
+                const flicker = 1 + Math.sin(elapsed * 28) * 0.12 + Math.cos(elapsed * 19) * 0.08;
+                flameLight.intensity = currentIntensity * 3.6 * flicker;
+            }
+            tubeGlowMeshes.forEach((tube, idx) => {
+                const rowFactor = 1 - Math.floor(idx / 4) * 0.15;
+                tube.material.emissiveIntensity = currentIntensity * 0.55 * rowFactor;
+            });
+
+            if (flameParticlesMesh) {
+                const posArr = flameParticlesMesh.geometry.attributes.position.array;
+                const colArr = flameParticlesMesh.geometry.attributes.color.array;
+                const maxFlameLen = 1.4 + currentIntensity * 2.6;
+
+                for (let i = 0; i < flameData.length; i++) {
+                    const p = flameData[i];
+                    p.progress += dt * p.speed * (0.4 + currentIntensity * 1.1);
+                    if (p.progress > 1) p.progress = 0;
+
+                    const x = -2.65 + p.progress * maxFlameLen;
+                    const spread = (0.12 + p.progress * 0.34) * (0.5 + currentIntensity * 0.6);
+                    posArr[i * 3] = x;
+                    posArr[i * 3 + 1] = -0.52 + Math.sin(p.angle + elapsed * 6) * spread;
+                    posArr[i * 3 + 2] = Math.cos(p.angle + elapsed * 5) * spread;
+
+                    colArr[i * 3] = 1.0;
+                    colArr[i * 3 + 1] = Math.max(0.2, 0.92 - p.progress * 0.65);
+                    colArr[i * 3 + 2] = Math.max(0.0, 0.55 - p.progress * 0.55);
+                }
+                flameParticlesMesh.geometry.attributes.position.needsUpdate = true;
+                flameParticlesMesh.geometry.attributes.color.needsUpdate = true;
+                flameParticlesMesh.visible = currentIntensity > 0.03;
+            }
+
+            // 8. Animate Water Surface Waves & Rising Boiling Bubbles
+            if (waterSurfaceMesh) {
+                const wPos = waterSurfaceMesh.geometry.attributes.position;
+                for (let i = 0; i < wPos.count; i++) {
+                    const vx = wPos.getX(i);
+                    const vz = wPos.getZ(i);
+                    const wave = (Math.sin(vx * 2.5 + elapsed * 4.5) + Math.cos(vz * 3.0 - elapsed * 3.5)) * (0.008 + currentIntensity * 0.025);
+                    wPos.setY(i, wave);
+                }
+                wPos.needsUpdate = true;
+            }
+
+            if (bubbleParticlesMesh) {
+                const bPos = bubbleParticlesMesh.geometry.attributes.position.array;
+                for (let i = 0; i < bubbleData.length; i++) {
+                    const b = bubbleData[i];
+                    b.y += dt * b.speed * (0.15 + currentIntensity * 1.3);
+                    if (b.y > 0.86) {
+                        b.y = -0.25 - Math.random() * 0.3;
+                        b.x = (Math.random() - 0.5) * 4.4;
+                    }
+                    bPos[i * 3] = b.x + Math.sin(elapsed * 4 + b.phase) * 0.03;
+                    bPos[i * 3 + 1] = b.y;
+                    bPos[i * 3 + 2] = b.z + Math.cos(elapsed * 3.5 + b.phase) * 0.03;
+                }
+                bubbleParticlesMesh.geometry.attributes.position.needsUpdate = true;
+                bubbleParticlesMesh.visible = currentIntensity > 0.05;
+            }
+
+            // 9. ANIMATE 3D STEAM FLOW & VELOCITY (m/s) IN DOME & MAIN HEADER
+            const normalizedSpeed = Math.max(0.05, steamVelocity / 22.0); // 1.0 at ~22 m/s, >2.0 at high pressure
+
+            // A) Steam rising from water surface & converging into Steam Dome (x = 0.55, y = 1.65..2.25)
+            if (domeSteamParticlesMesh) {
+                const dsPos = domeSteamParticlesMesh.geometry.attributes.position.array;
+                for (let i = 0; i < domeSteamData.length; i++) {
+                    const s = domeSteamData[i];
+                    s.y += dt * s.speed * (0.25 + normalizedSpeed * 0.85);
+                    // Pull horizontally toward the Steam Dome throat at x = 0.55, z = 0
+                    s.x += (0.55 - s.x) * dt * (0.45 + normalizedSpeed * 0.65);
+                    s.z += (0.0 - s.z) * dt * (0.45 + normalizedSpeed * 0.65);
+
+                    if (s.y > 2.22) {
+                        s.y = 0.92 + Math.random() * 0.15;
+                        s.x = (Math.random() - 0.5) * 4.5;
+                        s.z = (Math.random() - 0.5) * 1.1;
+                    }
+                    dsPos[i * 3] = s.x + Math.sin(elapsed * 3 + s.phase) * 0.02;
+                    dsPos[i * 3 + 1] = s.y;
+                    dsPos[i * 3 + 2] = s.z + Math.cos(elapsed * 3 + s.phase) * 0.02;
+                }
+                domeSteamParticlesMesh.geometry.attributes.position.needsUpdate = true;
+                domeSteamParticlesMesh.material.opacity = Math.min(0.65, 0.16 + normalizedSpeed * 0.24);
+            }
+
+            // B) High-Speed Steam Jet flowing UPWARD through vertical riser & exiting sideways (-Z) away from stack
+            if (headerSteamStreamMesh) {
+                const hsPos = headerSteamStreamMesh.geometry.attributes.position.array;
+                const jetLength = 1.4 + Math.min(2.6, normalizedSpeed * 1.3);
+
+                for (let i = 0; i < headerSteamData.length; i++) {
+                    const hs = headerSteamData[i];
+                    hs.progress += dt * hs.speedFactor * (0.35 + normalizedSpeed * 1.35);
+                    if (hs.progress > 1) hs.progress = 0;
+
+                    if (hs.progress < 0.38) {
+                        // Rising vertically straight UP from dome top (x=0.55, y=2.25 -> 3.66, z=0)
+                        const t = hs.progress / 0.38;
+                        hsPos[i * 3] = 0.55 + Math.cos(hs.angle) * 0.04 * hs.radialOffset;
+                        hsPos[i * 3 + 1] = 2.25 + t * 1.41;
+                        hsPos[i * 3 + 2] = Math.sin(hs.angle) * 0.04 * hs.radialOffset;
+                    } else {
+                        // Turning 90 deg and shooting sideways (-Z direction at y=3.66), far clear of Flue Stack
+                        const t = (hs.progress - 0.38) / 0.62;
+                        const distZ = t * (1.56 + jetLength);
+                        // Tight inside pipe (distZ < 1.56), expanding plume after exiting flange
+                        const coneSpread = distZ > 1.56 ? (0.045 + (distZ - 1.56) * 0.16) : 0.042;
+                        hsPos[i * 3] = 0.55 + Math.cos(hs.angle + elapsed * 8) * coneSpread * hs.radialOffset;
+                        hsPos[i * 3 + 1] = 3.66 + Math.sin(hs.angle + elapsed * 8) * coneSpread * hs.radialOffset;
+                        hsPos[i * 3 + 2] = -distZ;
+                    }
+                }
+                headerSteamStreamMesh.geometry.attributes.position.needsUpdate = true;
+                headerSteamStreamMesh.material.opacity = Math.min(0.92, 0.25 + normalizedSpeed * 0.35);
+                headerSteamStreamMesh.material.size = 0.18 + Math.min(0.16, normalizedSpeed * 0.06);
+            }
+
+            // C) Directional Flow Streaks (Vertical upward riser streaks + side-routed -Z header streaks)
+            if (steamSpeedStreaksMesh) {
+                const stPos = steamSpeedStreaksMesh.geometry.attributes.position.array;
+                const streakLen = 0.14 + Math.min(0.65, normalizedSpeed * 0.26);
+
+                for (let i = 0; i < streakData.length; i++) {
+                    const st = streakData[i];
+                    st.progress += dt * st.speedFactor * (0.4 + normalizedSpeed * 1.5);
+                    if (st.progress > 1) st.progress = 0;
+
+                    const idx = i * 6;
+                    if (st.inHeader) {
+                        // Streaks moving sideways (-Z) along the upper side-routed steam header (y = 3.66)
+                        const headZ = -0.15 - st.progress * 2.85;
+                        const tailZ = Math.min(-0.10, headZ + streakLen);
+                        stPos[idx] = 0.55 + st.laneY;
+                        stPos[idx + 1] = 3.66 + st.laneZ;
+                        stPos[idx + 2] = tailZ;
+
+                        stPos[idx + 3] = 0.55 + st.laneY;
+                        stPos[idx + 4] = 3.66 + st.laneZ;
+                        stPos[idx + 5] = headZ;
+                    } else {
+                        // Vertical streaks rising straight UP from Steam Dome through vertical riser (y = 1.45 -> 3.62)
+                        const headY = 1.45 + st.progress * 2.17;
+                        const tailY = Math.max(1.40, headY - streakLen * 0.85);
+                        const sx = 0.55 + st.laneY * 0.85;
+                        const sz = st.laneZ * 0.85;
+                        stPos[idx] = sx;
+                        stPos[idx + 1] = tailY;
+                        stPos[idx + 2] = sz;
+
+                        stPos[idx + 3] = sx;
+                        stPos[idx + 4] = headY;
+                        stPos[idx + 5] = sz;
+                    }
+                }
+                steamSpeedStreaksMesh.geometry.attributes.position.needsUpdate = true;
+                steamSpeedStreaksMesh.material.opacity = Math.min(0.95, 0.2 + normalizedSpeed * 0.45);
+            }
+
+            // D) Safety Valve Relief Plume (When Pressure > 15 Bar)
+            if (safetyValvePlumeMesh) {
+                safetyValvePlumeMesh.visible = safetyValveOpenAmount > 0.02;
+                if (safetyValvePlumeMesh.visible) {
+                    const spPos = safetyValvePlumeMesh.geometry.attributes.position.array;
+                    for (let i = 0; i < safetyPlumeData.length; i++) {
+                        const sp = safetyPlumeData[i];
+                        sp.progress += dt * sp.speed * (1.2 + safetyValveOpenAmount * 1.8);
+                        if (sp.progress > 1) sp.progress = 0;
+
+                        const spread = 0.04 + sp.progress * 0.38;
+                        spPos[i * 3] = -1.1 + Math.cos(sp.angle) * spread;
+                        spPos[i * 3 + 1] = 2.45 + sp.progress * (1.4 + safetyValveOpenAmount * 1.2);
+                        spPos[i * 3 + 2] = Math.sin(sp.angle) * spread;
+                    }
+                    safetyValvePlumeMesh.geometry.attributes.position.needsUpdate = true;
+                }
+            }
+
+            // 10. Exhaust Smoke from Flue Stack
+            if (smokeParticlesMesh) {
+                const smPos = smokeParticlesMesh.geometry.attributes.position.array;
+                for (let i = 0; i < smokeData.length; i++) {
+                    const sm = smokeData[i];
+                    sm.progress += dt * sm.speed * (0.3 + currentIntensity * 0.9);
+                    if (sm.progress > 1) sm.progress = 0;
+
+                    smPos[i * 3] = 2.45 + sm.offsetX * (1 + sm.progress * 2.2) + Math.sin(elapsed * 1.5 + i) * 0.08;
+                    smPos[i * 3 + 1] = 2.65 + sm.progress * 1.45;
+                    smPos[i * 3 + 2] = sm.offsetZ * (1 + sm.progress * 2.2);
+                }
+                smokeParticlesMesh.geometry.attributes.position.needsUpdate = true;
+                smokeParticlesMesh.material.opacity = 0.08 + currentIntensity * 0.24;
+            }
+
+            // Smooth Camera Transition
+            if (isCameraTransitioning) {
+                camera.position.lerp(targetCamPos, 0.075);
+                controls.target.lerp(targetControlsLookAt, 0.075);
+                if (camera.position.distanceTo(targetCamPos) < 0.04 && controls.target.distanceTo(targetControlsLookAt) < 0.04) {
+                    isCameraTransitioning = false;
+                }
+            }
+
+            controls.update();
+            updateProjectedPins();
+            renderer.render(scene, camera);
+        }
+
+        // UI Event Listeners
+        document.querySelectorAll('.shell-mode-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                setShellMode(btn.dataset.shellMode);
+                const labels = {
+                    cutaway: 'Mode Potongan Penampang (Cutaway) aktif.',
+                    xray: 'Mode Transparan (X-Ray) aktif.',
+                    solid: 'Mode Dinding Utuh (Solid) aktif.'
+                };
+                showToast(labels[btn.dataset.shellMode]);
+            });
+        });
+
+        document.querySelectorAll('.cam-preset-btn').forEach(btn => {
+            btn.addEventListener('click', () => setCameraPreset(btn.dataset.view));
+        });
+
+        burnerToggleBtn.addEventListener('click', () => {
+            burnerOn = !burnerOn;
+            if (burnerOn) {
+                burnerToggleBtn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white text-xs font-semibold transition shadow-lg shadow-orange-600/30';
+                burnerBtnLabel.textContent = 'Burner: ON';
+                showToast('Burner dinyalakan: tekanan & kecepatan uap meningkat.');
+            } else {
+                burnerToggleBtn.className = 'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700 hover:bg-slate-600 text-white text-xs font-semibold transition';
+                burnerBtnLabel.textContent = 'Burner: OFF';
+                showToast('Burner dimatikan: tekanan & kecepatan uap menurun.');
+            }
+        });
+
+        firingRateSlider.addEventListener('input', (e) => {
+            firingRate = parseInt(e.target.value, 10);
+            firingRateVal.textContent = `${firingRate}%`;
+        });
+
+        targetPressureSlider.addEventListener('input', (e) => {
+            targetPressure = parseFloat(e.target.value);
+            targetPressureVal.textContent = `${targetPressure.toFixed(1)} bar`;
+        });
+
+        valveOpeningSlider.addEventListener('input', (e) => {
+            valveOpening = parseInt(e.target.value, 10);
+            valveOpeningVal.textContent = `${valveOpening}%`;
+        });
+
+        document.getElementById('auto-rotate-btn').addEventListener('click', () => {
+            autoRotate = !autoRotate;
+            isCameraTransitioning = false;
+            controls.autoRotate = autoRotate;
+            controls.autoRotateSpeed = 1.6;
+            document.getElementById('auto-rotate-text').textContent = autoRotate ? 'Putar: ON' : 'Putar 360°';
+        });
+
+        document.getElementById('toggle-pins-btn').addEventListener('click', () => {
+            showPins = !showPins;
+            document.getElementById('toggle-pins-text').textContent = showPins ? 'Pin: ON' : 'Pin: OFF';
+            document.getElementById('pin-dot-indicator').className = showPins ? 'w-2 h-2 rounded-full bg-orange-500' : 'w-2 h-2 rounded-full bg-slate-500';
+        });
+
+        document.getElementById('toggle-sidebar-btn').addEventListener('click', () => {
+            setSidebarState(!sidebarOpen);
+        });
+
+        document.getElementById('close-sidebar-btn').addEventListener('click', () => {
+            setSidebarState(false);
+        });
+
+        document.getElementById('focus-mode-btn').addEventListener('click', () => {
+            setFocusMode(true);
+        });
+
+        document.getElementById('exit-focus-btn').addEventListener('click', () => {
+            setFocusMode(false);
+        });
+
+        document.getElementById('refocus-part-btn').addEventListener('click', () => {
+            selectPart(activePartIndex, true, true);
+        });
+
+        document.getElementById('prev-part-btn').addEventListener('click', () => selectPart(activePartIndex - 1, true, false));
+        document.getElementById('next-part-btn').addEventListener('click', () => selectPart(activePartIndex + 1, true, false));
+        document.getElementById('drawer-prev-btn').addEventListener('click', () => selectPart(activePartIndex - 1, true, true));
+        document.getElementById('drawer-next-btn').addEventListener('click', () => selectPart(activePartIndex + 1, true, true));
+
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowRight') selectPart(activePartIndex + 1, true, false);
+            if (e.key === 'ArrowLeft') selectPart(activePartIndex - 1, true, false);
+            if (e.key === 'Escape' && focusMode) setFocusMode(false);
+        });
+
+        window.onload = function () {
+            initThree();
+            buildPinElements();
+            selectPart(0, false, false);
+            animate();
+        };
+    </script>
+</body>
+</html>
